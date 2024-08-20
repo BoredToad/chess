@@ -1,15 +1,34 @@
 use crate::chess::*;
 
-enum PieceMoveError {
-    IndexError(BoardIndexError),
+enum MovePieceError {
+    NotPossible,
+    OutOfBounds,
 }
-pub trait Piece {
-    fn new(color: ChessColor, pos: Coordinate) -> Self
-    where
-        Self: Sized;
+
+pub trait Piece
+where
+    Self: Sized,
+{
+    fn new(color: ChessColor, pos: Coordinate) -> Self;
     fn get_color(&self) -> &ChessColor;
+    fn get_pos(&self) -> &Coordinate;
     fn get_moves(&self, board: &Board) -> Vec<Coordinate>;
-    fn move_piece(&mut self, board: &mut Board, pos: Coordinate) -> Result<Square, PieceMoveError>;
+
+    fn move_piece(self, board: &mut Board, pos: Coordinate) -> Result<(), MovePieceError> {
+        if !self.get_moves(board).iter().any(|i| *i == pos) {
+            return Err(MovePieceError::NotPossible);
+        }
+
+        let origin = self.get_pos();
+        let mut square = if let Ok(i) = board.at(pos.tuple()) {
+            i
+        } else {
+            return Err(MovePieceError::OutOfBounds);
+        };
+        square = &mut Some(Box::new(self));
+
+        Ok(())
+    }
 }
 
 struct Pawn {
@@ -35,6 +54,10 @@ impl Piece for Pawn {
         &self.color
     }
 
+    fn get_pos(&self) -> &Coordinate {
+        &self.pos
+    }
+
     fn get_moves(&self, board: &Board) -> Vec<Coordinate> {
         let mut possible = vec![];
         let direction = match self.color {
@@ -58,32 +81,48 @@ impl Piece for Pawn {
         for side in [-1, 1] {
             let target = cord(self.pos.x + direction, self.pos.y + side);
 
-            match board.immutable_at(target.tuple()) {
+            let square = match board.immutable_at(target.tuple()) {
                 Err(_) => continue,
-                Ok(square) => match square {
-                    None => continue,
-                    Some(piece) => {
-                        if self.color == *piece.get_color() {
-                            continue;
-                        }
-                    }
-                },
+                Ok(square) => square,
+            };
+            let piece = match square {
+                None => continue,
+                Some(piece) => piece,
+            };
+            if self.color == *piece.get_color() {
+                continue;
             }
+
             possible.push(target)
         }
 
+        // en passant is for later lol, couldn't be fucked
+
         possible
     }
+}
 
-    fn move_piece(&mut self, board: &mut Board, pos: Coordinate) -> Result<Square, PieceMoveError> {
+struct King {
+    color: ChessColor,
+    pos: Coordinate,
+}
+impl Piece for King {
+    fn new(color: ChessColor, pos: Coordinate) -> Self {
+        todo!()
+    }
+    fn get_pos(&self) -> &Coordinate {
+        todo!()
+    }
+    fn get_color(&self) -> &ChessColor {
+        todo!()
+    }
+    fn get_moves(&self, board: &Board) -> Vec<Coordinate> {
         todo!()
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::array;
-
     use super::*;
 
     #[test]
